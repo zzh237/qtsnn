@@ -48,7 +48,8 @@ class STScenario1(SpatialTemporalScenario):
         for i in range(1, self.n):
             where = np.random.uniform(0, 1, m[i-1]) < 0.1
             if where.any():
-                base_x[i, :where.sum()] = base_x[i-1, where]
+                n_keep = where.sum()
+                base_x[i, :n_keep] = base_x[i-1, :m[i-1]][where]
         
         X_list, y_list = [], []
         t = np.arange(1, 26)
@@ -155,7 +156,8 @@ class STScenario3(SpatialTemporalScenario):
         for i in range(1, self.n):
             where = np.random.uniform(0, 1, m[i-1]) < 0.1
             if where.any():
-                base_x[i, :where.sum()] = base_x[i-1, where]
+                n_keep = where.sum()
+                base_x[i, :n_keep] = base_x[i-1, :m[i-1]][where]
         
         X_list, y_list = [], []
         t = np.arange(1, 26)
