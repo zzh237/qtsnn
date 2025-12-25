@@ -13,8 +13,10 @@ qtsnn/
 ├── utils.py                       # 工具函数
 ├── torch_utils.py                 # PyTorch工具
 ├── visualize.py                   # 可视化函数
+├── logger.py                      # 日志工具
 ├── plots/                         # 输出图表
 ├── results/                       # 输出结果
+├── logs/                          # 运行日志
 └── README.md                      # 本文件
 ```
 
@@ -108,6 +110,13 @@ quantiles = np.array([0.05, 0.25, 0.5, 0.75, 0.95])  # 分位数
 - `st_mse_results.npy`: 完整的MSE结果数组
   - 维度: (N_trials, N_scenarios, N_models, N_sample_sizes, N_quantiles)
 
+### 3. 运行日志 (logs/)
+
+- `benchmark_st_demo_YYYY-MM-DD-HH-MM-SS.log`: Demo模式运行日志
+- `benchmark_st_full_YYYY-MM-DD-HH-MM-SS.log`: 完整实验运行日志
+
+所有打印输出都会同时显示在控制台和保存到日志文件中。
+
 ### 3. 读取结果
 
 ```python
@@ -119,6 +128,9 @@ results = np.load('results/st_mse_results.npy')
 # 计算平均MSE
 mean_mse = np.nanmean(results, axis=0)
 print(mean_mse)
+
+# 查看日志
+# 日志文件在 logs/ 目录下，按时间戳命名
 ```
 
 ## 模型说明
@@ -177,3 +189,69 @@ print(mean_mse)
 1. 依赖包是否正确安装
 2. Python版本 >= 3.7
 3. PyTorch是否正确安装
+
+
+
+# 日志功能说明
+
+## 自动日志记录
+
+运行 `benchmark_st.py` 时，所有输出会自动保存到日志文件：
+
+```bash
+# Demo模式
+python benchmark_st.py
+# 日志保存到: logs/benchmark_st_demo_2024-01-15-10-30-45.log
+
+# 完整实验
+python benchmark_st.py --full
+# 日志保存到: logs/benchmark_st_full_2024-01-15-10-30-45.log
+```
+
+## 日志内容
+
+日志文件包含：
+- 实验配置信息
+- 每个trial的详细输出
+- 模型训练进度
+- MSE结果
+- 最终统计信息
+
+## 查看日志
+
+```bash
+# 查看最新日志
+ls -lt logs/ | head -5
+
+# 实时查看日志（在另一个终端）
+tail -f logs/benchmark_st_demo_*.log
+
+# 搜索特定内容
+grep "MSE" logs/benchmark_st_demo_*.log
+```
+
+## 日志文件命名
+
+格式: `benchmark_st_{mode}_{timestamp}.log`
+- `mode`: demo 或 full
+- `timestamp`: YYYY-MM-DD-HH-MM-SS
+
+## 示例输出
+
+```
+================================================================================
+Quantile Regression Neural Network - Spatial-Temporal Benchmarks
+================================================================================
+Mode: Demo (1 trial)
+Time: 2024-01-15-10-30-45
+Log file: logs/benchmark_st_demo_2024-01-15-10-30-45.log
+================================================================================
+
+Results shape: (1, 3, 2, 3, 5)
+Trial 1/1
+  Scenario 1: STScenario1
+    N=1000
+      SqErr Network
+      Quantile Network
+...
+```
