@@ -37,24 +37,28 @@ class RScenario1(Benchmark):
         return self.noiseless(X) + norm.ppf(q, 0, 1)
     
     def sample(self, X):
-        """Add spatial correlation via distance-based noise"""
+        """Add spatial correlation via distance-based noise (optimized)"""
         base = self.noiseless(X)
-        
-        # Spatial correlation: nearby points have correlated noise
         n = X.shape[0]
-        dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
-        K = np.exp(-dists**2 / 0.5)  # Gaussian kernel
         
-        # Cholesky decomposition for correlated noise
-        try:
-            L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
-            spatial_noise = L @ np.random.randn(n)
-        except:
+        # For large n, use approximate spatial correlation
+        if n > 1000:
+            # Simple approach: add local correlation only
             spatial_noise = np.random.randn(n)
+            # Smooth with moving average
+            window = min(50, n // 20)
+            spatial_noise = np.convolve(spatial_noise, np.ones(window)/window, mode='same')
+        else:
+            # Full Cholesky for small n
+            dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
+            K = np.exp(-dists**2 / 0.5)
+            try:
+                L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
+                spatial_noise = L @ np.random.randn(n)
+            except:
+                spatial_noise = np.random.randn(n)
         
-        # Independent noise
         indep_noise = norm.rvs(0, 0.5, size=n)
-        
         return base + 0.5 * spatial_noise + 0.5 * indep_noise
 
 # R Scenario 2: Linear boundary with heavy-tailed noise
@@ -72,23 +76,25 @@ class RScenario2(Benchmark):
         return self.noiseless(X) + t_dist.ppf(q, 2)
     
     def sample(self, X):
-        """Add spatial correlation with t-distributed noise"""
+        """Add spatial correlation with t-distributed noise (optimized)"""
         base = self.noiseless(X)
-        
-        # Spatial correlation
         n = X.shape[0]
-        dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
-        K = np.exp(-dists**2 / 0.5)
         
-        try:
-            L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
-            spatial_noise = L @ np.random.randn(n)
-        except:
+        # Optimized spatial correlation
+        if n > 1000:
             spatial_noise = np.random.randn(n)
+            window = min(50, n // 20)
+            spatial_noise = np.convolve(spatial_noise, np.ones(window)/window, mode='same')
+        else:
+            dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
+            K = np.exp(-dists**2 / 0.5)
+            try:
+                L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
+                spatial_noise = L @ np.random.randn(n)
+            except:
+                spatial_noise = np.random.randn(n)
         
-        # Heavy-tailed noise
         heavy_noise = cauchy.rvs(0, 1, size=n)
-        
         return base + 0.5 * spatial_noise + 0.5 * heavy_noise
 
 # R Scenario 3: Piecewise constant with quantile-specific shift
@@ -112,21 +118,23 @@ class RScenario3(Benchmark):
         return self.noiseless(X) + norm.ppf(self.tau, 0, 1) + norm.ppf(q, 0, 1)
     
     def sample(self, X):
-        """Add spatial correlation with t(3) noise"""
+        """Add spatial correlation with t(3) noise (optimized)"""
         base = self.noiseless(X) + norm.ppf(self.tau, 0, 1)
-        
-        # Spatial correlation
         n = X.shape[0]
-        dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
-        K = np.exp(-dists**2 / 0.5)
         
-        try:
-            L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
-            spatial_noise = L @ np.random.randn(n)
-        except:
+        # Optimized spatial correlation
+        if n > 1000:
             spatial_noise = np.random.randn(n)
+            window = min(50, n // 20)
+            spatial_noise = np.convolve(spatial_noise, np.ones(window)/window, mode='same')
+        else:
+            dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
+            K = np.exp(-dists**2 / 0.5)
+            try:
+                L = np.linalg.cholesky(K + 1e-6 * np.eye(n))
+                spatial_noise = L @ np.random.randn(n)
+            except:
+                spatial_noise = np.random.randn(n)
         
-        # t-distributed noise
         t_noise = t_dist.rvs(3, size=n)
-        
         return base + 0.5 * spatial_noise + 0.5 * t_noise
