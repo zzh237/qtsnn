@@ -6,37 +6,49 @@ import sys
 import time
 from pathlib import Path
 
-from funcs_st import STScenario1, STScenario2, STScenario3, STScenario4, STScenario5
+from funcs_st import STScenario1, STScenario2, STScenario3, STScenario4, STScenario5, STScenario6, STScenario7, STScenario8
 from neural_sqerr import SqErrNetwork
 from neural_model import QuantileNetwork
 from visualize import heatmap_from_points
 from logger import DualLogger
 
-def run_st_benchmarks(demo=True):
+def run_st_benchmarks(demo=True, scenarios=None):
     N_trials = 1 if demo else 100
     N_test = 10000
     sample_sizes = [1000, 5000, 10000]
     quantiles = np.array([0.05, 0.25, 0.5, 0.75, 0.95])
-    functions = [STScenario1(), STScenario2(), STScenario3(), STScenario4(), STScenario5()]
+    
+    all_functions = [STScenario1(), STScenario2(), STScenario3(), STScenario4(), STScenario5(),
+                     STScenario6(), STScenario7(), STScenario8()]
+    
+    # Filter scenarios if specified
+    if scenarios:
+        functions = [all_functions[i-1] for i in scenarios if 1 <= i <= len(all_functions)]
+        scenario_indices = [i-1 for i in scenarios if 1 <= i <= len(all_functions)]
+    else:
+        functions = all_functions
+        scenario_indices = list(range(len(all_functions)))
+    
     models = [lambda: SqErrNetwork(),
               lambda: QuantileNetwork(quantiles=quantiles)]
 
-    mse_results = np.full((N_trials, len(functions), len(models), len(sample_sizes), len(quantiles)), np.nan)
+    mse_results = np.full((N_trials, len(all_functions), len(models), len(sample_sizes), len(quantiles)), np.nan)
     print(f'Results shape: {mse_results.shape}')
+    print(f'Running scenarios: {[i+1 for i in scenario_indices]}')
 
     Path('plots').mkdir(exist_ok=True)
     Path('results').mkdir(exist_ok=True)
 
     for trial in range(N_trials):
         print(f'Trial {trial+1}/{N_trials}')
-        for scenario, func in enumerate(functions):
-            print(f'  Scenario {scenario+1}: {func.label}')
+        for idx, (scenario_idx, func) in enumerate(zip(scenario_indices, functions)):
+            print(f'  Scenario {scenario_idx+1}: {func.label}')
 
             X_test = np.random.random(size=(N_test, func.n_in))
             y_test = func.sample(X_test)
             y_quantiles = np.array([func.quantile(X_test, q) for q in quantiles]).T
 
-            if demo and scenario == 0:
+            if demo and idx == 0:
                 for qidx, q in enumerate((quantiles*100).astype(int)):
                     heatmap_from_points(f'plots/st_scenario{scenario+1}-quantile{q}-truth.pdf', 
                                       X_test[:,:2], y_quantiles[:,qidx], 
@@ -53,17 +65,17 @@ def run_st_benchmarks(demo=True):
                     model.fit(X_train, y_train)
                     preds = model.predict(X_test)
 
-                    mse_results[trial, scenario, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
+                    mse_results[trial, scenario_idx, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
 
-                    if demo and scenario == 0 and nidx == 0:
+                    if demo and idx == 0 and nidx == 0:
                         for qidx, q in enumerate((quantiles*100).astype(int)):
-                            heatmap_from_points(f'plots/st_scenario{scenario+1}-quantile{q}-n{N_train}-{model.filename}.pdf',
+                            heatmap_from_points(f'plots/st_scenario{scenario_idx+1}-quantile{q}-n{N_train}-{model.filename}.pdf',
                                               X_test[:,:2],
                                               preds[:,qidx] if preds.shape[1] > qidx else preds[:,-1],
                                               vmin=y_quantiles.min(), vmax=y_quantiles.max(),
                                               colorbar=midx == len(models)-1)
 
-            print(f'  Results: {mse_results[trial, scenario]}')
+            print(f'  Results: {mse_results[trial, scenario_idx]}')
 
         if not demo:
             np.save('results/st_mse_results.npy', mse_results)
@@ -85,6 +97,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ST Quantile regression benchmarks')
     parser.add_argument('--demo', action='store_true', default=True, help='Run in demo mode')
     parser.add_argument('--full', action='store_true', help='Run full experiment')
+    parser.add_argument('--scenarios', type=int, nargs='+', help='Scenarios to run (e.g., --scenarios 6 7 8)')
     args = parser.parse_args()
     
     demo_mode = not args.full
@@ -115,7 +128,7 @@ if __name__ == '__main__':
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         start_time = time.time()
-        run_st_benchmarks(demo=demo_mode)
+        run_st_benchmarks(demo=demo_mode, scenarios=args.scenarios)
         elapsed_time = time.time() - start_time
         
         print(f"\n{'='*80}")

@@ -91,3 +91,21 @@ class STScenario5(SpatialTemporalWrapper):
     def __init__(self):
         super().__init__(Scenario5(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
         self.label = 'ST Scenario 5'
+
+# Add R-based scenarios
+from funcs_r import RScenario1, RScenario2, RScenario3
+
+class STScenario6(SpatialTemporalWrapper):
+    def __init__(self):
+        super().__init__(RScenario1(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+        self.label = 'ST Scenario 6 (R1)'
+
+class STScenario7(SpatialTemporalWrapper):
+    def __init__(self):
+        super().__init__(RScenario2(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+        self.label = 'ST Scenario 7 (R2)'
+
+class STScenario8(SpatialTemporalWrapper):
+    def __init__(self):
+        super().__init__(RScenario3(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+        self.label = 'ST Scenario 8 (R3)'
