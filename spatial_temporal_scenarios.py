@@ -78,11 +78,12 @@ class STScenario1(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         
-        if len(X) == len(X_full):
-            return y_full
-        
-        indices = np.random.choice(len(X_full), len(X), replace=False)
-        return y_full[indices]
+        if len(X) <= len(X_full):
+            indices = np.random.choice(len(X_full), len(X), replace=False)
+            return y_full[indices]
+        else:
+            indices = np.random.choice(len(X_full), len(X), replace=True)
+            return y_full[indices]
 
 class STScenario2(SpatialTemporalScenario):
     def __init__(self, n=200, m_mult=1, d=2, tau=0.5):
@@ -127,11 +128,12 @@ class STScenario2(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         
-        if len(X) == len(X_full):
-            return y_full
-        
-        indices = np.random.choice(len(X_full), len(X), replace=False)
-        return y_full[indices]
+        if len(X) <= len(X_full):
+            indices = np.random.choice(len(X_full), len(X), replace=False)
+            return y_full[indices]
+        else:
+            indices = np.random.choice(len(X_full), len(X), replace=True)
+            return y_full[indices]
 
 class STScenario3(SpatialTemporalScenario):
     def __init__(self, n=200, m_mult=1, d=2, tau=0.5):
@@ -189,8 +191,9 @@ class STScenario3(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         
-        if len(X) == len(X_full):
-            return y_full
-        
-        indices = np.random.choice(len(X_full), len(X), replace=False)
-        return y_full[indices]
+        if len(X) <= len(X_full):
+            indices = np.random.choice(len(X_full), len(X), replace=False)
+            return y_full[indices]
+        else:
+            indices = np.random.choice(len(X_full), len(X), replace=True)
+            return y_full[indices]
