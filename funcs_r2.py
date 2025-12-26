@@ -596,7 +596,7 @@ class STScenario9(SpatialTemporalScenario):
             delta_rand = W @ b                                  # (mi,)
 
             # epsilon: 0.3*past_e + t(3)
-            epsilon = 0.3 * past_e + t_dist.rvs(df=3, size=M)   # (M,)
+            epsilon = 0.3 * past_e + t_dist.rvs(df=5, size=M)   # (M,)
 
             y_i = beta_i + shift_i + delta_rand + (epsilon[:mi] - 0.3 * past_e[:mi])
             # 上式等价于 beta_i + (0.5*past_b*h + (b/t)*h) + epsilon[:mi]
@@ -627,7 +627,7 @@ class STScenario9(SpatialTemporalScenario):
 
         # pre-draw MC samples for quantile (reused for different q)
         self._mc_Z = np.random.normal(0.0, 1.0, size=self.mc_R).astype(np.float32)
-        self._mc_T = t_dist.rvs(df=3, size=self.mc_R).astype(np.float32)
+        self._mc_T = t_dist.rvs(df=5, size=self.mc_R).astype(np.float32)
 
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         return X_full, y_full
@@ -693,7 +693,7 @@ class STScenario9(SpatialTemporalScenario):
         R = self.mc_R
         if self._mc_Z is None or self._mc_T is None or self._mc_Z.shape[0] != R:
             self._mc_Z = np.random.normal(0.0, 1.0, size=R).astype(np.float32)
-            self._mc_T = t_dist.rvs(df=3, size=R).astype(np.float32)
+            self._mc_T = t_dist.rvs(df=5, size=R).astype(np.float32)
 
         Z = self._mc_Z
         T = self._mc_T
