@@ -310,7 +310,11 @@ class STScenario8(SpatialTemporalScenario):
         self._cache_shift = None   # deterministic shift term per flattened point
         self._cache_var = None     # conditional variance per flattened point (given past)
 
-    
+        # (optional) MC draws cache for quantile() if you use MC there
+        self.mc_R = 1024
+        self._mc_Z = None
+        self._mc_T = None
+
     def noiseless(self, X):
         center1 = np.ones(self.d) * 0.25
         center2 = np.ones(self.d) * 0.75
@@ -319,82 +323,168 @@ class STScenario8(SpatialTemporalScenario):
         return np.where(dist1 < dist2, 1, -1)
     
     def quantile(self, X, q):
-        n = X.shape[0]
-        m = self._generate_m(n)
-        
-        for i in range(1, n):
-            where = np.random.uniform(0, 1, m[i-1]) < 0.1
-            if where.any():
-                n_keep = where.sum()
-                X[i, :n_keep] = X[i-1, :m[i-1]][where]
-        
-        X_list, y_list = [], []
-        
-        for i in tqdm(range(n), desc='Quantile computation', leave=False):
-            X_i = X[i, :m[i]]
-            beta_i = self.noiseless(X_i) + norm.ppf(self.tau, 0, 1)
-            y_i = beta_i + t_dist.ppf(q, 3) * np.ones(m[i])
-            
-            X_list.append(X_i)
-            y_list.append(y_i)
-        
-        X_full = np.vstack(X_list)
-        y_full = np.concatenate(y_list)
-        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
-        
-        return y_full
-        # if len(X) <= len(X_full):
-        #     indices = np.random.choice(len(X_full), len(X), replace=False)
-        #     return y_full[indices]
-        # else:
-        #     indices = np.random.choice(len(X_full), len(X), replace=True)
-        #     return y_full[indices]
+        """
+        Oracle quantile (MC) for Scenario 8.
+
+        Requires that sample() has been called right before so caches are aligned.
+        If caches not available, fallback will ignore history shift (less accurate).
+        """
+        if not (0.0 < q < 1.0):
+            raise ValueError("q must be in (0,1).")
+
+        X_flat = self._flatten_X(X)  # parent 提供；把 (n,M,d) -> (N_flat,d)
+        base = self.noiseless(X_flat) + norm.ppf(self.tau, loc=0, scale=1)
+
+        # ---------- use oracle cache if available ----------
+        use_cache = (
+            hasattr(self, "_cache_nflat")
+            and self._cache_nflat is not None
+            and X_flat.shape[0] == self._cache_nflat
+            and getattr(self, "_cache_shift", None) is not None
+            and getattr(self, "_cache_sigma", None) is not None
+            and getattr(self, "_cache_tscale", None) is not None
+        )
+
+        if use_cache:
+            shift  = self._cache_shift.astype(np.float32)
+            sigma  = self._cache_sigma.astype(np.float32)
+            tscale = self._cache_tscale.astype(np.float32)
+        else:
+            # fallback: 没有 history，shift 只能当 0；sigma/tscale 用当前 i>0 的近似常数
+            # （你 benchmark 是 sample 后立刻 quantile，基本不会走到这）
+            t = np.arange(1, 26, dtype=float)
+            H = self._h_matrix(X_flat, t)
+            W = H / t[None, :]
+            scale_delta = np.sqrt(0.5**2 + 1.0**2)
+            scale_eps   = np.sqrt(0.3**2 + 1.0**2)
+            shift  = np.zeros(X_flat.shape[0], dtype=np.float32)
+            sigma  = (np.sqrt(np.sum(W**2, axis=1)) / scale_delta).astype(np.float32)
+            tscale = np.full(X_flat.shape[0], 1.0/scale_eps, dtype=np.float32)
+
+        # ---------- MC for quantile of Normal(0,sigma^2) + t3*tscale ----------
+        R = getattr(self, "mc_R", 1024)
+        chunk = getattr(self, "mc_chunk", 4000)
+
+        # 复用 MC draws（每次 q 不同也能复用同一批样本）
+        if getattr(self, "_mc_Z", None) is None or getattr(self, "_mc_T", None) is None or self._mc_Z.shape[0] != R:
+            self._mc_Z = np.random.normal(0.0, 1.0, size=R).astype(np.float32)   # (R,)
+            self._mc_T = t_dist.rvs(df=3, size=R).astype(np.float32)            # (R,)
+
+        Z = self._mc_Z
+        T = self._mc_T
+
+        N = X_flat.shape[0]
+        out = np.empty(N, dtype=np.float32)
+
+        for s in range(0, N, chunk):
+            e = min(N, s + chunk)
+            sig = sigma[s:e]     # (C,)
+            sca = tscale[s:e]    # (C,)
+
+            # samples: (R,C) = Z[:,None]*sig[None,:] + T[:,None]*sca[None,:]
+            samples = Z[:, None] * sig[None, :] + T[:, None] * sca[None, :]
+            out[s:e] = np.quantile(samples, q, axis=0).astype(np.float32)
+
+        return (base + shift + out).astype(float)
+
     
     def sample(self, X):
+        """
+        X: expected shape (n, M, d), where M >= max(m)
+        returns:
+            X_full: (N_flat, d)
+            y_full: (N_flat,)
+        Also caches oracle terms aligned with X_full rows:
+            self._cache_shift, self._cache_sigma, self._cache_tscale, self._cache_nflat
+        """
+        X = np.asarray(X, dtype=float)
+        if X.ndim != 3 or X.shape[2] != self.d:
+            raise ValueError(f"X must have shape (n, M, {self.d}), got {X.shape}.")
+
         n = X.shape[0]
         m = self._generate_m(n)
         M = m.max()
-        
+
+        # --- keep mechanism (in-place modify X) ---
         for i in range(1, n):
             where = np.random.uniform(0, 1, m[i-1]) < 0.1
             if where.any():
-                n_keep = where.sum()
-                X[i, :n_keep] = X[i-1, :m[i-1]][where]
-        
+                n_keep = int(where.sum())
+                # copy selected previous points into the front of current list
+                X[i, :n_keep, :] = X[i-1, :m[i-1], :][where]
+
         X_list, y_list = [], []
-        t = np.arange(1, 26)
-        past_b = np.zeros(25)
-        past_e = np.zeros(M)
-        
+        shift_list, sigma_list, tscale_list = [], [], []
+
+        t = np.arange(1, 26, dtype=float)  # (25,)
+        past_b = np.zeros(25, dtype=float)
+        past_e = np.zeros(M, dtype=float)
+
+        # constant shift for beta (tau-quantile of N(0,1))
+        beta_shift = norm.ppf(self.tau, loc=0.0, scale=1.0)
+
         for i in tqdm(range(n), desc='Sample generation', leave=False):
-            X_i = X[i, :m[i]]
-            beta_i = self.noiseless(X_i) + norm.ppf(self.tau, 0, 1)
-            
-            scale_delta = 1 if i == 0 else np.sqrt(0.5**2 + 1**2)
-            scale_epsilon = 1 if i == 0 else np.sqrt(0.3**2 + 1**2)
-            
-            b = (0.5 * past_b + (1/t) * np.random.normal(0, 1, 25)) / scale_delta
-            delta = np.zeros(m[i])
-            for j in range(m[i]):
-                h_vals = self._h_function(X_i[j], t)
-                delta[j] = np.sum(b * h_vals)
-            
-            epsilon = (0.3 * past_e + t_dist.rvs(3, size=M)) / scale_epsilon
-            y_i = beta_i + delta + epsilon[:m[i]]
-            
+            mi = int(m[i])
+            X_i = X[i, :mi, :]  # (mi, d)  <-- IMPORTANT FIX
+
+            # beta part
+            beta_i = self.noiseless(X_i) + beta_shift  # (mi,)
+
+            # scaling (your original)
+            scale_delta   = 1.0 if i == 0 else np.sqrt(0.5**2 + 1.0**2)
+            scale_epsilon = 1.0 if i == 0 else np.sqrt(0.3**2 + 1.0**2)
+
+            # compute H and W
+            H = self._h_matrix(X_i, t)         # (mi, 25)
+            W = H / t[None, :]                  # (mi, 25)
+
+            # ---- oracle cache pieces (given current history) ----
+            # delta deterministic part from past_b: H @ (0.5*past_b) / scale_delta
+            # epsilon deterministic part from past_e: (0.3*past_e_j) / scale_epsilon
+            shift_i = (H @ (0.5 * past_b)) / scale_delta + (0.3 * past_e[:mi]) / scale_epsilon  # (mi,)
+
+            # delta random part is Normal with std = ||W|| / scale_delta
+            sigma_i = (np.sqrt(np.sum(W**2, axis=1)) / scale_delta)  # (mi,)
+
+            # epsilon innovation is t3 scaled by 1/scale_epsilon
+            tscale_i = np.full(mi, 1.0 / scale_epsilon, dtype=float)  # (mi,)
+
+            # ---- generate randomness exactly as your code ----
+            # b = (0.5*past_b + (1/t)*N(0,1)) / scale_delta
+            innov_b = (1.0 / t) * np.random.normal(0.0, 1.0, 25)      # (25,)
+            b = (0.5 * past_b + innov_b) / scale_delta                 # (25,)
+
+            # delta = sum_k b_k * h_k(x) = H @ b
+            delta = H @ b                                               # (mi,)
+
+            # epsilon = (0.3*past_e + t3) / scale_epsilon
+            epsilon = (0.3 * past_e + t_dist.rvs(df=3, size=M)) / scale_epsilon  # (M,)
+
+            y_i = beta_i + delta + epsilon[:mi]                         # (mi,)
+
+            # update states (your original)
             past_b = b
             past_e = epsilon
-            
+
+            # collect
             X_list.append(X_i)
             y_list.append(y_i)
-        
+            shift_list.append(shift_i)
+            sigma_list.append(sigma_i)
+            tscale_list.append(tscale_i)
+
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+
+        # cache aligned with X_full rows
+        self._cache_shift = np.concatenate(shift_list).astype(np.float32)
+        self._cache_sigma = np.concatenate(sigma_list).astype(np.float32)
+        self._cache_tscale = np.concatenate(tscale_list).astype(np.float32)
+        self._cache_nflat = X_full.shape[0]
+
+        # (optional) pre-draw MC samples for quantile() if you use MC there
+        self._mc_Z = np.random.normal(0.0, 1.0, size=self.mc_R).astype(np.float32)
+        self._mc_T = t_dist.rvs(df=3, size=self.mc_R).astype(np.float32)
+
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         return X_full, y_full
-        # if len(X) <= len(X_full):
-        #     indices = np.random.choice(len(X_full), len(X), replace=False)
-        #     return y_full[indices]
-        # else:
-        #     indices = np.random.choice(len(X_full), len(X), replace=True)
-        #     return y_full[indices]
