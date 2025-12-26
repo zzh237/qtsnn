@@ -113,3 +113,6 @@ class STScenario5(SpatialTemporalWrapper):
 
 # Import R scenarios from funcs_r2.py (full R implementation)
 from funcs_r2 import STScenario6, STScenario7, STScenario8
+
+# Import univariate scenarios from funcs_r1.py
+from funcs_r1 import STScenario9, STScenario10, STScenario11, STScenario12, STScenario13, STScenario14

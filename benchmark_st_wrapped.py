@@ -6,7 +6,9 @@ import sys
 import time
 from pathlib import Path
 
-from funcs_st import STScenario1, STScenario2, STScenario3, STScenario4, STScenario5, STScenario6, STScenario7, STScenario8
+from funcs_st import (STScenario1, STScenario2, STScenario3, STScenario4, STScenario5, 
+                      STScenario6, STScenario7, STScenario8,
+                      STScenario9, STScenario10, STScenario11, STScenario12, STScenario13, STScenario14)
 from neural_sqerr import SqErrNetwork
 from neural_model import QuantileNetwork
 from visualize import heatmap_from_points
@@ -19,7 +21,8 @@ def run_st_benchmarks(demo=True, scenarios=None):
     quantiles = np.array([0.05, 0.25, 0.5, 0.75, 0.95])
     
     all_functions = [STScenario1(), STScenario2(), STScenario3(), STScenario4(), STScenario5(),
-                     STScenario6(), STScenario7(), STScenario8()]
+                     STScenario6(), STScenario7(), STScenario8(),
+                     STScenario9(), STScenario10(), STScenario11(), STScenario12(), STScenario13(), STScenario14()]
     
     # Filter scenarios if specified
     if scenarios:
@@ -46,14 +49,18 @@ def run_st_benchmarks(demo=True, scenarios=None):
             if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                 X_test = np.random.random(size=(N_test, func.n_in))
                 y_test = func.sample(X_test)
-            else:
+            elif scenario_idx + 1 in [6, 7, 8]:
                 M = func._generate_m(n=N_test).max()
                 X_test_input = np.random.uniform(0, 1, (N_test, M, func.d))
+                X_test, y_test = func.sample(X_test_input)
+            else:  # scenarios 9-14
+                M = func._generate_m(n=N_test).max()
+                X_test_input = np.random.uniform(0, 1, (N_test, M, 1))
                 X_test, y_test = func.sample(X_test_input)
             y_quantiles = np.array([func.quantile(X_test_input, q) for q in quantiles]).T
 
             if demo and idx == 0:
-                if scenario_idx + 1 in [1, 2, 3, 4, 5]:
+                if scenario_idx + 1 in [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]:
                     for qidx, q in enumerate((quantiles*100).astype(int)):
                         heatmap_from_points(f'plots/st_scenario{scenario_idx+1}-quantile{q}-truth.pdf', 
                                           X_test[:,:2], y_quantiles[:,qidx], 
@@ -94,13 +101,14 @@ def run_st_benchmarks(demo=True, scenarios=None):
                 print(f'    N={N_train}')
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                     X_train = np.random.random(size=(N_train, func.n_in))
-                    # X_test_flat = X_test
                     y_train = func.sample(X_train)
-                else:
+                elif scenario_idx + 1 in [6, 7, 8]:
                     M = func._generate_m(n=N_train).max()
                     X_train_input = np.random.uniform(0, 1, (N_train, M, func.d))
-                    # Flatten 3D to 2D for neural network: (N, M, d) -> (N, M*d)
-                    # X_test_flat = X_test.reshape(X_test.shape[0], -1)
+                    X_train, y_train = func.sample(X_train_input)
+                else:  # scenarios 9-14
+                    M = func._generate_m(n=N_train).max()
+                    X_train_input = np.random.uniform(0, 1, (N_train, M, 1))
                     X_train, y_train = func.sample(X_train_input)
 
                 for midx, model in enumerate([m() for m in models]):
@@ -128,7 +136,7 @@ def run_st_benchmarks(demo=True, scenarios=None):
                     mse_results[trial, scenario_idx, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
 
                     if demo and idx == 0 and nidx == 0:
-                        if scenario_idx + 1 in [1, 2, 3, 4, 5]:
+                        if scenario_idx + 1 in [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]:
                             for qidx, q in enumerate((quantiles*100).astype(int)):
                                 heatmap_from_points(f'plots/st_scenario{scenario_idx+1}-quantile{q}-n{N_train}-{model.filename}.pdf',
                                                   X_test[:,:2],
