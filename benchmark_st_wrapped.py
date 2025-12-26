@@ -53,7 +53,7 @@ def run_st_benchmarks(demo=True, scenarios=None):
 
             if demo and idx == 0:
                 for qidx, q in enumerate((quantiles*100).astype(int)):
-                    heatmap_from_points(f'plots/st_scenario{scenario+1}-quantile{q}-truth.pdf', 
+                    heatmap_from_points(f'plots/st_scenario{scenario_idx+1}-quantile{q}-truth.pdf', 
                                       X_test[:,:2], y_quantiles[:,qidx], 
                                       vmin=y_quantiles.min(), vmax=y_quantiles.max())
 
