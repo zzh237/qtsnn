@@ -25,6 +25,21 @@ class SpatialTemporalScenario:
     def _h_function(self, x, t):
         products = np.array([(1/np.sqrt(2)) * np.pi * np.sin(t_val * x) for t_val in t])
         return np.prod(products, axis=1)
+    
+    def _flatten_X(self, X):
+        X = np.asarray(X, dtype=float)
+        if X.ndim == 3:
+            n, M, d = X.shape
+            if d != self.d:
+                raise ValueError(f"X last dim must be {self.d}, got {d}.")
+            m = self._generate_m(n)
+            return np.vstack([X[i, :m[i], :] for i in range(n)])  # (N_flat, d)
+        elif X.ndim == 2:
+            if X.shape[1] != self.d:
+                raise ValueError(f"X must have shape (N, {self.d}), got {X.shape}.")
+            return X
+        else:
+            raise ValueError(f"X must be 2D or 3D, got {X.ndim}D.")
 
 class STScenario6(SpatialTemporalScenario):
     def __init__(self, m_mult=1, d=2, tau=0.5):
@@ -44,128 +59,102 @@ class STScenario6(SpatialTemporalScenario):
         dist2 = np.linalg.norm(X - center2, axis=1)
         return np.where(dist1 < dist2, 1, -1)
     
+    
     def _h_matrix(self, X, t):
-        """
-        Vectorized h:
-        X: (n, d), t: (T,)
-        return: H: (n, T) where H[i,k] = h(X[i], t[k])
-        """
         X = np.asarray(X, dtype=float)
-        t = np.asarray(t, dtype=float)  # (T,)
-
-        # sin(t * x): (n, T, d)
-        sin_part = np.sin(X[:, None, :] * t[None, :, None])
-        prod_over_d = np.prod(sin_part, axis=2)  # (n, T)
+        t = np.asarray(t, dtype=float)
+        sin_part = np.sin(X[:, None, :] * t[None, :, None])  # (N, T, d)
+        prod_over_d = np.prod(sin_part, axis=2)              # (N, T)
         const = ((np.pi / np.sqrt(2.0)) ** X.shape[1])
-        return const * prod_over_d
+        return const * prod_over_d    
 
     def quantile(self, X, q):
         """
         Oracle quantile if sample() was called and X matches cached X_full row order.
         Otherwise, fall back to a stationary/independence approximation (only depends on X).
         """
-        X = np.asarray(X, dtype=float)
         if not (0.0 < q < 1.0):
             raise ValueError("q must be in (0, 1).")
-
         z = norm.ppf(q)
 
-        # ---- Preferred: exact conditional quantile given the history used during sample() ----
+        X_flat = self._flatten_X(X)          # (N_flat, d)
+        beta = self.noiseless(X_flat)        # (N_flat,)
+
+        # --- oracle branch: use cached shift/var from the last sample() ---
         if (
-            self._cache_X_full is not None
-            and self._cache_shift is not None
-            and self._cache_var is not None
-            and X.shape == self._cache_X_full.shape
-            and np.allclose(X, self._cache_X_full)
+            hasattr(self, "_cache_shift") and hasattr(self, "_cache_var") and hasattr(self, "_cache_nflat")
+            and self._cache_shift is not None and self._cache_var is not None
+            and X_flat.shape[0] == self._cache_nflat
         ):
-            beta = self.noiseless(X)
             return beta + self._cache_shift + z * np.sqrt(self._cache_var)
 
-        # ---- Fallback: if you only have X, no history => use steady-state approximation ----
-        # mean shift is 0 in steady-state (by symmetry), variance uses Var(past_b) and Var(epsilon) at stationarity
+        # --- fallback: steady-state approximation (no history available) ---
         t = np.arange(1, 26, dtype=float)
-        H = self._h_matrix(X, t)
+        H = self._h_matrix(X_flat, t)
 
-        # Var(past_b_k) for AR(1): past_b <- 0.5 past_b + (1/t)*b, with b~N(0,1)
-        # => Var(past_b_k) = ( (1/t_k)^2 ) / (1 - 0.5^2 ) = 4/(3 t_k^2)
-        var_delta_ss = np.sum((0.5**2) * (4.0 / (3.0 * (t**2))) * (H**2), axis=1) + np.sum((H / t[None, :])**2, axis=1)
-        # Above includes two parts if you want to be more faithful; simplest is:
-        # var_delta_ss = (4.0/3.0) * np.sum((H / t[None, :])**2, axis=1)
+        eps_var_ss = (0.5 ** 2) / (1.0 - 0.3 ** 2)
+        delta_var_ss = (4.0 / 3.0) * np.sum((H / t[None, :]) ** 2, axis=1)
 
-        # epsilon stationarity: e = 0.3 e_prev + eta, eta~N(0,0.5^2)
-        eps_var_ss = (0.5**2) / (1.0 - 0.3**2)
-
-        beta = self.noiseless(X)
-        return beta + z * np.sqrt(var_delta_ss + eps_var_ss)
-        # if len(X) <= len(X_full):
-        #     indices = np.random.choice(len(X_full), len(X), replace=False)
-        #     return y_full[indices]
-        # else:
-        #     indices = np.random.choice(len(X_full), len(X), replace=True)
-        #     return y_full[indices]
+        return beta + z * np.sqrt(delta_var_ss + eps_var_ss)
 
     def sample(self, X):
         """
         X expected shape: (n, M, d) where M >= max(m)
         """
-        X = np.asarray(X, dtype=float)
         n = X.shape[0]
         m = self._generate_m(n)
         M = m.max()
 
-        # keep mechanism
+        # keep mechanism (in-place modify X!)
         for i in range(1, n):
             where = np.random.uniform(0, 1, m[i-1]) < 0.1
             if where.any():
                 n_keep = where.sum()
-                # copy some points from previous list (only first m[i-1])
                 X[i, :n_keep, :] = X[i-1, :m[i-1], :][where]
 
         X_list, y_list = [], []
-        shift_list, var_list = [], []
+        shift_list, var_list = [], []   # <-- NEW
 
         t = np.arange(1, 26, dtype=float)  # (25,)
-        past_b = np.zeros(25, dtype=float)
-        past_e = np.zeros(M, dtype=float)
+        past_b = np.zeros(25)
+        past_e = np.zeros(M)
 
         for i in tqdm(range(n), desc='Sample generation', leave=False):
-            X_i = X[i, :m[i], :]          # (m_i, d)
-            beta_i = self.noiseless(X_i)  # (m_i,)
+            X_i = X[i, :m[i], :]              # (m_i, d)
+            beta_i = self.noiseless(X_i)      # (m_i,)
 
-            # ---- oracle ingredients (conditional on current past) ----
+            # ---- NEW: oracle shift & var given current history ----
             H = self._h_matrix(X_i, t)  # (m_i, 25)
 
-            # deterministic shift: sum_t 0.5*past_b_t*h_t(x) + 0.3*past_e_j
-            shift_i = H @ (0.5 * past_b) + 0.3 * past_e[:m[i]]  # (m_i,)
+            shift_i = H @ (0.5 * past_b) + 0.3 * past_e[:m[i]]           # (m_i,)
+            var_i = np.sum((H / t[None, :]) ** 2, axis=1) + (0.5 ** 2)   # (m_i,)
 
-            # conditional variance given past (integrate out b and eta only):
-            # var from b: sum_t (h_t/t)^2  ; var from eta: 0.5^2
-            var_i = np.sum((H / t[None, :]) ** 2, axis=1) + (0.5 ** 2)  # (m_i,)
+            # ---- your original randomness ----
+            b = np.random.normal(0, 1, 25)
 
-            # ---- generate y using your original process ----
-            b = np.random.normal(0.0, 1.0, 25)  # (25,)
-            delta_rand = H @ (b / t)            # (m_i,)   (this is the random part from b)
+            # random part from b: sum (1/t)*b*h
+            delta_rand = H @ (b / t)  # (m_i,)
 
-            epsilon = 0.3 * past_e + np.random.normal(0.0, 0.5, M)  # (M,)
-            y_i = beta_i + shift_i + delta_rand + (epsilon[:m[i]] - 0.3 * past_e[:m[i]])  # equals beta+delta+epsilon
+            epsilon = 0.3 * past_e + np.random.normal(0, 0.5, M)
+            # y = beta + (0.5*past_b*h + (b/t)*h) + epsilon
+            y_i = beta_i + shift_i + delta_rand + (epsilon[:m[i]] - 0.3 * past_e[:m[i]])
 
-            # update states (same as your code)
-            past_b = 0.5 * past_b + (1.0 / t) * b
+            # update states
+            past_b = 0.5 * past_b + (1/t) * b
             past_e = epsilon
 
-            # collect
             X_list.append(X_i)
             y_list.append(y_i)
-            shift_list.append(shift_i)
-            var_list.append(var_i)
+            shift_list.append(shift_i)   # <-- NEW
+            var_list.append(var_i)       # <-- NEW
 
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
 
-        # cache oracle stats aligned with X_full rows
-        self._cache_X_full = X_full
+        # ---- NEW: cache aligned with X_full row order ----
         self._cache_shift = np.concatenate(shift_list)
         self._cache_var = np.concatenate(var_list)
+        self._cache_nflat = X_full.shape[0]
 
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         return X_full, y_full
