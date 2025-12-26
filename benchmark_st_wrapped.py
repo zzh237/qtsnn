@@ -109,12 +109,19 @@ def run_st_benchmarks(demo=True, scenarios=None):
                         X_train_flat = X_train.reshape(X_train.shape[0], -1)
                     else:
                         X_train_flat = X_train
+                    
+                    # Debug: print all shapes
+                    print(f'        X_train shape: {X_train.shape}')
+                    print(f'        X_train_flat shape: {X_train_flat.shape}')
+                    print(f'        y_train shape: {y_train.shape}')
+                    print(f'        X_test shape: {X_test.shape}')
+                    print(f'        X_test_flat shape: {X_test_flat.shape}')
 
                     model.fit(X_train_flat, y_train)
                     preds = model.predict(X_test_flat)
                     
-                    # Debug: print shapes
-                    print(f'        y_quantiles shape: {y_quantiles.shape}, preds shape: {preds.shape}')
+                    print(f'        y_quantiles shape: {y_quantiles.shape}')
+                    print(f'        preds shape: {preds.shape}')
 
                     mse_results[trial, scenario_idx, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
 
