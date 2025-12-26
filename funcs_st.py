@@ -112,4 +112,4 @@ class STScenario5(SpatialTemporalWrapper):
 #         self.label = 'ST Scenario 8 (R3)'
 
 # Import R scenarios from funcs_r2.py (full R implementation)
-from qtsnn.funcs_r2_back import STScenario6, STScenario7, STScenario8
+from funcs_r2 import STScenario6, STScenario7, STScenario8
