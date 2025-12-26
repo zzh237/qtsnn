@@ -63,13 +63,13 @@ class STScenario6(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
-        
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]
 
     def sample(self, X):
         n = X.shape[0]
@@ -110,12 +110,13 @@ class STScenario6(SpatialTemporalScenario):
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return X_full, y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]
 
 class STScenario7(SpatialTemporalScenario):
     def __init__(self, m_mult=1, d=2, tau=0.5):
@@ -143,12 +144,13 @@ class STScenario7(SpatialTemporalScenario):
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]
     
     def sample(self, X):
         n = X.shape[0]
@@ -182,13 +184,13 @@ class STScenario7(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
-        
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return X_full, y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]
 
 class STScenario8(SpatialTemporalScenario):
     def __init__(self, m_mult=1, d=2, tau=0.5):
@@ -226,12 +228,13 @@ class STScenario8(SpatialTemporalScenario):
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]
     
     def sample(self, X):
         n = X.shape[0]
@@ -274,10 +277,10 @@ class STScenario8(SpatialTemporalScenario):
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
-        
-        if len(X) <= len(X_full):
-            indices = np.random.choice(len(X_full), len(X), replace=False)
-            return y_full[indices]
-        else:
-            indices = np.random.choice(len(X_full), len(X), replace=True)
-            return y_full[indices]
+        return X_full, y_full
+        # if len(X) <= len(X_full):
+        #     indices = np.random.choice(len(X_full), len(X), replace=False)
+        #     return y_full[indices]
+        # else:
+        #     indices = np.random.choice(len(X_full), len(X), replace=True)
+        #     return y_full[indices]

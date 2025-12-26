@@ -45,11 +45,12 @@ def run_st_benchmarks(demo=True, scenarios=None):
             print(f'  Scenario {scenario_idx+1}: {func.label}')
             if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                 X_test = np.random.random(size=(N_test, func.n_in))
+                y_test = func.sample(X_test)
             else:
                 M = func._generate_m(n=N_test).max()
-                X_test = np.random.uniform(0, 1, (N_test, M, func.d))
-            y_test = func.sample(X_test)
-            y_quantiles = np.array([func.quantile(X_test, q) for q in quantiles]).T
+                X_test_input = np.random.uniform(0, 1, (N_test, M, func.d))
+                X_test, y_test = func.sample(X_test_input)
+            y_quantiles = np.array([func.quantile(X_test_input, q) for q in quantiles]).T
 
             if demo and idx == 0:
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
@@ -57,68 +58,69 @@ def run_st_benchmarks(demo=True, scenarios=None):
                         heatmap_from_points(f'plots/st_scenario{scenario_idx+1}-quantile{q}-truth.pdf', 
                                           X_test[:,:2], y_quantiles[:,qidx], 
                                           vmin=y_quantiles.min(), vmax=y_quantiles.max())
-                else:
-                    # For scenarios 6-8, create subplot grid for each M position
-                    import matplotlib.pyplot as plt
-                    M = X_test.shape[1]
-                    n_cols = int(np.ceil(np.sqrt(M)))
-                    n_rows = int(np.ceil(M / n_cols))
+                # else:
+                #     # For scenarios 6-8, create subplot grid for each M position
+                #     import matplotlib.pyplot as plt
+                #     M = X_test.shape[1]
+                #     n_cols = int(np.ceil(np.sqrt(M)))
+                #     n_rows = int(np.ceil(M / n_cols))
                     
-                    for qidx, q in enumerate((quantiles*100).astype(int)):
-                        fig, axes = plt.subplots(n_rows, n_cols, figsize=(4*n_cols, 4*n_rows))
-                        axes = axes.flatten() if M > 1 else [axes]
+                #     for qidx, q in enumerate((quantiles*100).astype(int)):
+                #         fig, axes = plt.subplots(n_rows, n_cols, figsize=(4*n_cols, 4*n_rows))
+                #         axes = axes.flatten() if M > 1 else [axes]
                         
-                        for m_idx in range(M):
-                            ax = axes[m_idx]
-                            # Use first 2 dimensions of X for each M position
-                            X_2d = X_test[:, m_idx, :2]
-                            from scipy.interpolate import griddata
-                            grid_x, grid_y = np.mgrid[0:1:100j, 0:1:100j]
-                            grid_z = griddata(X_2d, y_quantiles[:,qidx], (grid_x, grid_y), method='nearest')
-                            im = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap='viridis')
-                            ax.set_title(f'M={m_idx+1}')
-                            ax.set_xlabel('X1')
-                            ax.set_ylabel('X2')
-                            plt.colorbar(im, ax=ax)
+                #         for m_idx in range(M):
+                #             ax = axes[m_idx]
+                #             # Use first 2 dimensions of X for each M position
+                #             X_2d = X_test[:, m_idx, :2]
+                #             from scipy.interpolate import griddata
+                #             grid_x, grid_y = np.mgrid[0:1:100j, 0:1:100j]
+                #             grid_z = griddata(X_2d, y_quantiles[:,qidx], (grid_x, grid_y), method='nearest')
+                #             im = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap='viridis')
+                #             ax.set_title(f'M={m_idx+1}')
+                #             ax.set_xlabel('X1')
+                #             ax.set_ylabel('X2')
+                #             plt.colorbar(im, ax=ax)
                         
-                        # Hide unused subplots
-                        for m_idx in range(M, len(axes)):
-                            axes[m_idx].axis('off')
+                #         # Hide unused subplots
+                #         for m_idx in range(M, len(axes)):
+                #             axes[m_idx].axis('off')
                         
-                        plt.tight_layout()
-                        plt.savefig(f'plots/st_scenario{scenario_idx+1}-quantile{q}-truth.pdf')
-                        plt.close()
+                #         plt.tight_layout()
+                #         plt.savefig(f'plots/st_scenario{scenario_idx+1}-quantile{q}-truth.pdf')
+                #         plt.close()
 
             for nidx, N_train in enumerate(sample_sizes):
                 print(f'    N={N_train}')
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                     X_train = np.random.random(size=(N_train, func.n_in))
-                    X_test_flat = X_test
+                    # X_test_flat = X_test
+                    y_train = func.sample(X_train)
                 else:
                     M = func._generate_m(n=N_train).max()
-                    X_train = np.random.uniform(0, 1, (N_train, M, func.d))
+                    X_train_input = np.random.uniform(0, 1, (N_train, M, func.d))
                     # Flatten 3D to 2D for neural network: (N, M, d) -> (N, M*d)
-                    X_test_flat = X_test.reshape(X_test.shape[0], -1)
-                y_train = func.sample(X_train)
+                    # X_test_flat = X_test.reshape(X_test.shape[0], -1)
+                    X_train, y_train = func.sample(X_train_input)
 
                 for midx, model in enumerate([m() for m in models]):
                     print(f'      {model.label}')
                     
                     # Flatten X_train for scenarios 6-8
-                    if scenario_idx + 1 in [6, 7, 8]:
-                        X_train_flat = X_train.reshape(X_train.shape[0], -1)
-                    else:
-                        X_train_flat = X_train
+                    # if scenario_idx + 1 in [6, 7, 8]:
+                    #     X_train_flat = X_train.reshape(X_train.shape[0], -1)
+                    # else:
+                    #     X_train_flat = X_train
                     
                     # Debug: print all shapes
                     print(f'        X_train shape: {X_train.shape}')
-                    print(f'        X_train_flat shape: {X_train_flat.shape}')
+                    # print(f'        X_train_flat shape: {X_train_flat.shape}')
                     print(f'        y_train shape: {y_train.shape}')
                     print(f'        X_test shape: {X_test.shape}')
-                    print(f'        X_test_flat shape: {X_test_flat.shape}')
+                    # print(f'        X_test_flat shape: {X_test_flat.shape}')
 
-                    model.fit(X_train_flat, y_train)
-                    preds = model.predict(X_test_flat)
+                    model.fit(X_train, y_train)
+                    preds = model.predict(X_test)
                     
                     print(f'        y_quantiles shape: {y_quantiles.shape}')
                     print(f'        preds shape: {preds.shape}')
