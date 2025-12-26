@@ -565,7 +565,8 @@ class STScenario9(SpatialTemporalScenario):
             total_cnt += mi
 
         f_bar = total_sum / max(total_cnt, 1)   # mean of unlist(beta) in R
-
+        f_bar = 0 
+        
         # Now generate y sequentially with temporal dependence (like R)
         t = np.arange(1, 26, dtype=float)        # 1..25
         past_b = np.zeros(25, dtype=float)
@@ -623,7 +624,7 @@ class STScenario9(SpatialTemporalScenario):
         self._cache_tscale = np.concatenate(tscale_list).astype(np.float32)
         self._cache_nflat = X_full.shape[0]
         self._cache_beta = np.concatenate([b - f_bar for b in beta_raw_list]).astype(np.float32)
-        
+
         # pre-draw MC samples for quantile (reused for different q)
         self._mc_Z = np.random.normal(0.0, 1.0, size=self.mc_R).astype(np.float32)
         self._mc_T = t_dist.rvs(df=3, size=self.mc_R).astype(np.float32)
