@@ -66,7 +66,7 @@ class STScenario6(SpatialTemporalScenario):
                 # delta[j] = np.sum((1/t) * b * h_vals)
                 delta[j] = np.sum(0.5 * past_b * h_vals) + np.sum((1/t) * b * h_vals)
             
-            epsilon = 0.3 * past_e + norm.ppf(0, 0.5, M)
+            epsilon = 0.3 * past_e + norm.ppf(q, 0, 0.5)
             # epsilon = norm.ppf(q, 0, 0.5) * np.ones(m[i])
             y_i = beta_i + delta + epsilon[:m[i]]
             
