@@ -56,7 +56,7 @@ class STScenario6(SpatialTemporalScenario):
             X_i = X[i, :m[i]]
             beta_i = self.noiseless(X_i)
             
-            b = norm.ppf(q, 0, 1, size=25)
+            b = norm.ppf(q, 0, 1)
             delta = np.zeros(m[i])
             for j in range(m[i]):
                 h_vals = self._h_function(X_i[j], t)
