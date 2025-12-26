@@ -41,7 +41,8 @@ class STScenario6(SpatialTemporalScenario):
     def quantile(self, X, q):
         n = X.shape[0]
         m = self._generate_m(n)
-        
+        M = m.max()
+
         for i in range(1, n):
             where = np.random.uniform(0, 1, m[i-1]) < 0.1
             if where.any():
@@ -51,20 +52,27 @@ class STScenario6(SpatialTemporalScenario):
         X_list, y_list = [], []
         t = np.arange(1, 26)
         past_b = np.zeros(25)
+        past_e = np.zeros(M)
 
         for i in tqdm(range(n), desc='Quantile computation', leave=False):
             X_i = X[i, :m[i]]
             beta_i = self.noiseless(X_i)
-            
+            # Use N(0, 0.5) to match epsilon distribution in sample
+            # This ignores delta but matches the base noise distribution
             b = norm.ppf(q, 0, 1)
             delta = np.zeros(m[i])
             for j in range(m[i]):
                 h_vals = self._h_function(X_i[j], t)
+                # delta[j] = np.sum((1/t) * b * h_vals)
                 delta[j] = np.sum(0.5 * past_b * h_vals) + np.sum((1/t) * b * h_vals)
             
-            past_b = 0.5 * past_b + (1/t) * b
-            y_i = beta_i + delta + norm.ppf(q, 0, 0.5) * np.ones(m[i])
+            epsilon = 0.3 * past_e + norm.ppf(0, 0.5, m[i])
+            # epsilon = norm.ppf(q, 0, 0.5) * np.ones(m[i])
+            y_i = beta_i + delta + epsilon
             
+            past_b = 0.5 * past_b + (1/t) * b
+            past_e = epsilon
+
             X_list.append(X_i)
             y_list.append(y_i)
         
@@ -139,21 +147,11 @@ class STScenario7(SpatialTemporalScenario):
         m = self._generate_m(n)
         
         X_list, y_list = [], []
-        t = np.arange(1, 26)
-        past_b = np.zeros(25)
         
         for i in tqdm(range(n), desc='Quantile computation', leave=False):
             X_i = X[i, :m[i]]
             beta_i = self.noiseless(X_i)
-            
-            b = t_dist.ppf(q, 2, size=25)
-            delta = np.zeros(m[i])
-            for j in range(m[i]):
-                h_vals = self._h_function(X_i[j], t)
-                delta[j] = np.sum(0.5 * past_b * h_vals) + np.sum((1/t) * b * h_vals)
-            
-            past_b = 0.5 * past_b + (1/t) * b
-            y_i = beta_i + delta + cauchy.ppf(q, 0, 1.5) * np.ones(m[i])
+            y_i = beta_i + cauchy.ppf(q, 0, 1.5) * np.ones(m[i])
             
             X_list.append(X_i)
             y_list.append(y_i)
@@ -233,22 +231,11 @@ class STScenario8(SpatialTemporalScenario):
                 X[i, :n_keep] = X[i-1, :m[i-1]][where]
         
         X_list, y_list = [], []
-        t = np.arange(1, 26)
-        past_b = np.zeros(25)
         
         for i in tqdm(range(n), desc='Quantile computation', leave=False):
             X_i = X[i, :m[i]]
             beta_i = self.noiseless(X_i) + norm.ppf(self.tau, 0, 1)
-            
-            scale_delta = 1 if i == 0 else np.sqrt(0.5**2 + 1**2)
-            b = (0.5 * past_b + (1/t) * norm.ppf(q, 0, 1, size=25)) / scale_delta
-            delta = np.zeros(m[i])
-            for j in range(m[i]):
-                h_vals = self._h_function(X_i[j], t)
-                delta[j] = np.sum(b * h_vals)
-            
-            past_b = b
-            y_i = beta_i + delta + t_dist.ppf(q, 3) * np.ones(m[i])
+            y_i = beta_i + t_dist.ppf(q, 3) * np.ones(m[i])
             
             X_list.append(X_i)
             y_list.append(y_i)
