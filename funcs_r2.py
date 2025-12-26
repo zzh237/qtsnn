@@ -566,7 +566,7 @@ class STScenario9(SpatialTemporalScenario):
 
         f_bar = total_sum / max(total_cnt, 1)   # mean of unlist(beta) in R
         f_bar = 0 
-        
+
         # Now generate y sequentially with temporal dependence (like R)
         t = np.arange(1, 26, dtype=float)        # 1..25
         past_b = np.zeros(25, dtype=float)
@@ -592,7 +592,7 @@ class STScenario9(SpatialTemporalScenario):
 
             # ----- random part -----
             # b ~ N(0,2) i.i.d, delta_rand = W @ b
-            b = np.random.normal(loc=0.0, scale=2.0, size=25)  # (25,)
+            b = np.random.normal(loc=0.0, scale=1.0, size=25)  # (25,)
             delta_rand = W @ b                                  # (mi,)
 
             # epsilon: 0.3*past_e + t(3)
@@ -609,7 +609,7 @@ class STScenario9(SpatialTemporalScenario):
 
             # ----- cache for oracle quantile -----
             # delta_rand is Normal with std = 2 * sqrt(sum (H/t)^2)
-            sigma_i = 2.0 * np.sqrt(np.sum(W**2, axis=1))     # (mi,)
+            sigma_i = 1.0 * np.sqrt(np.sum(W**2, axis=1))     # (mi,)
             tscale_i = np.ones(mi, dtype=float)              # t(3) innovation scale is 1
 
             shift_list.append(shift_i)
@@ -686,7 +686,7 @@ class STScenario9(SpatialTemporalScenario):
             H = self._h_matrix(X_flat, t)
             W = H / t[None, :]
             shift = np.zeros(X_flat.shape[0], dtype=np.float32)
-            sigma = (2.0 * np.sqrt(np.sum(W**2, axis=1))).astype(np.float32)
+            sigma = (1.0 * np.sqrt(np.sum(W**2, axis=1))).astype(np.float32)
             tscale = np.ones(X_flat.shape[0], dtype=np.float32)
 
         # MC draws
