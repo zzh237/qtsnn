@@ -15,7 +15,7 @@ from logger import DualLogger
 def run_st_benchmarks(demo=True, scenarios=None):
     N_trials = 1 if demo else 100
     N_test = 10000
-    sample_sizes = [1000, 5000, 10000]
+    sample_sizes = [100, 500, 1000]
     quantiles = np.array([0.05, 0.25, 0.5, 0.75, 0.95])
     
     all_functions = [STScenario1(), STScenario2(), STScenario3(), STScenario4(), STScenario5(),
@@ -112,6 +112,9 @@ def run_st_benchmarks(demo=True, scenarios=None):
 
                     model.fit(X_train_flat, y_train)
                     preds = model.predict(X_test_flat)
+                    
+                    # Debug: print shapes
+                    print(f'        y_quantiles shape: {y_quantiles.shape}, preds shape: {preds.shape}')
 
                     mse_results[trial, scenario_idx, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
 
@@ -164,12 +167,12 @@ def run_st_benchmarks(demo=True, scenarios=None):
 
     print('\nFinal MSE Results (mean across trials):')
     mean_mse = np.nanmean(mse_results, axis=0)
-    for scenario in range(len(functions)):
-        print(f'\nScenario {scenario+1}:')
+    for idx, scenario_idx in enumerate(scenario_indices):
+        print(f'\nScenario {scenario_idx+1}:')
         for midx, model in enumerate([m() for m in models]):
             print(f'  {model.label}:')
             for nidx, N_train in enumerate(sample_sizes):
-                print(f'    N={N_train}: {mean_mse[scenario, midx, nidx]}')
+                print(f'    N={N_train}: {mean_mse[scenario_idx, midx, nidx]}')
 
     return mse_results
 
