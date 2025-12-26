@@ -49,13 +49,21 @@ class STScenario6(SpatialTemporalScenario):
                 X[i, :n_keep] = X[i-1, :m[i-1]][where]
         
         X_list, y_list = [], []
-        
+        t = np.arange(1, 26)
+
         for i in tqdm(range(n), desc='Quantile computation', leave=False):
             X_i = X[i, :m[i]]
             beta_i = self.noiseless(X_i)
             # Use N(0, 0.5) to match epsilon distribution in sample
             # This ignores delta but matches the base noise distribution
-            y_i = beta_i + norm.ppf(q, 0, 0.5) * np.ones(m[i])
+            b = norm.ppf(q, 0, 1)
+            delta = np.zeros(m[i])
+            for j in range(m[i]):
+                h_vals = self._h_function(X_i[j], t)
+                delta[j] = np.sum((1/t) * b * h_vals)
+            
+
+            y_i = beta_i + delta + norm.ppf(q, 0, 0.5) * np.ones(m[i])
             
             X_list.append(X_i)
             y_list.append(y_i)
