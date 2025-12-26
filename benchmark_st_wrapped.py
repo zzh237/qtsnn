@@ -93,16 +93,25 @@ def run_st_benchmarks(demo=True, scenarios=None):
                 print(f'    N={N_train}')
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                     X_train = np.random.random(size=(N_train, func.n_in))
+                    X_test_flat = X_test
                 else:
                     M = func._generate_m(n=N_train).max()
                     X_train = np.random.uniform(0, 1, (N_train, M, func.d))
+                    # Flatten 3D to 2D for neural network: (N, M, d) -> (N, M*d)
+                    X_test_flat = X_test.reshape(X_test.shape[0], -1)
                 y_train = func.sample(X_train)
 
                 for midx, model in enumerate([m() for m in models]):
                     print(f'      {model.label}')
+                    
+                    # Flatten X_train for scenarios 6-8
+                    if scenario_idx + 1 in [6, 7, 8]:
+                        X_train_flat = X_train.reshape(X_train.shape[0], -1)
+                    else:
+                        X_train_flat = X_train
 
-                    model.fit(X_train, y_train)
-                    preds = model.predict(X_test)
+                    model.fit(X_train_flat, y_train)
+                    preds = model.predict(X_test_flat)
 
                     mse_results[trial, scenario_idx, midx, nidx] = ((y_quantiles - preds)**2).mean(axis=0)
 
