@@ -62,6 +62,7 @@ class STScenario6(SpatialTemporalScenario):
         
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
         if len(X) <= len(X_full):
             indices = np.random.choice(len(X_full), len(X), replace=False)
@@ -107,6 +108,7 @@ class STScenario6(SpatialTemporalScenario):
         
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
         if len(X) <= len(X_full):
             indices = np.random.choice(len(X_full), len(X), replace=False)
@@ -139,6 +141,7 @@ class STScenario7(SpatialTemporalScenario):
         
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
         if len(X) <= len(X_full):
             indices = np.random.choice(len(X_full), len(X), replace=False)
@@ -178,6 +181,7 @@ class STScenario7(SpatialTemporalScenario):
         
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
         if len(X) <= len(X_full):
             indices = np.random.choice(len(X_full), len(X), replace=False)
@@ -220,6 +224,7 @@ class STScenario8(SpatialTemporalScenario):
         
         X_full = np.vstack(X_list)
         y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         
         if len(X) <= len(X_full):
             indices = np.random.choice(len(X_full), len(X), replace=False)
@@ -264,6 +269,18 @@ class STScenario8(SpatialTemporalScenario):
             past_e = epsilon
             
             X_list.append(X_i)
+            y_list.append(y_i)
+        
+        X_full = np.vstack(X_list)
+        y_full = np.concatenate(y_list)
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
+        
+        if len(X) <= len(X_full):
+            indices = np.random.choice(len(X_full), len(X), replace=False)
+            return y_full[indices]
+        else:
+            indices = np.random.choice(len(X_full), len(X), replace=True)
+            return y_full[indices]X_list.append(X_i)
             y_list.append(y_i)
         
         X_full = np.vstack(X_list)
