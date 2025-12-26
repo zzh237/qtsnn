@@ -220,8 +220,8 @@ class STScenario7(SpatialTemporalScenario):
             W = (H / t[None, :]).astype(np.float32)
             shift = np.zeros(X_flat.shape[0], dtype=np.float32)
             if self._mc_B is None or self._mc_U is None:
-                B = t_dist.rvs(df=2, size=(self.mc_R, 25)).astype(np.float32)
-                U = cauchy.rvs(loc=0, scale=1, size=self.mc_R).astype(np.float32)
+                B = t_dist.rvs(df=5, size=(self.mc_R, 25)).astype(np.float32)
+                U = t_dist.rvs(df=5, size=self.mc_R).astype(np.float32)
             else:
                 B = self._mc_B
                 U = self._mc_U
@@ -269,10 +269,10 @@ class STScenario7(SpatialTemporalScenario):
             shift_i = H @ (0.5 * past_b) + 0.3 * past_e[:m[i]]   # (m_i,)
 
             # randomness
-            b = t_dist.rvs(df=2, size=25)        # (25,)
+            b = t_dist.rvs(df=5, size=25)        # (25,)
             delta_rand = W @ b                   # (m_i,)  since W = H/t
 
-            epsilon = 0.3 * past_e + cauchy.rvs(loc=0, scale=1, size=M)
+            epsilon = 0.3 * past_e + t_dist.rvs(df=5, size=M)
             u = epsilon[:m[i]] - 0.3 * past_e[:m[i]]             # innovation part, (m_i,)
 
             y_i = beta_i + shift_i + delta_rand + u
@@ -295,8 +295,8 @@ class STScenario7(SpatialTemporalScenario):
         self._cache_nflat = X_full.shape[0]
 
         # prepare MC draws once (reuse for different q calls)
-        self._mc_B = t_dist.rvs(df=2, size=(self.mc_R, 25)).astype(np.float32)
-        self._mc_U = cauchy.rvs(loc=0, scale=1, size=self.mc_R).astype(np.float32)
+        self._mc_B = t_dist.rvs(df=5, size=(self.mc_R, 25)).astype(np.float32)
+        self._mc_U = t_dist.rvs(df=5, size=self.mc_R).astype(np.float32)
 
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         return X_full, y_full
