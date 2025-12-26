@@ -135,39 +135,39 @@ def run_st_benchmarks(demo=True, scenarios=None):
                                                   preds[:,qidx] if preds.shape[1] > qidx else preds[:,-1],
                                                   vmin=y_quantiles.min(), vmax=y_quantiles.max(),
                                                   colorbar=midx == len(models)-1)
-                        else:
-                            # For scenarios 6-8, create subplot grid
-                            import matplotlib.pyplot as plt
-                            M = X_test.shape[1]
-                            n_cols = int(np.ceil(np.sqrt(M)))
-                            n_rows = int(np.ceil(M / n_cols))
+                        # else:
+                        #     # For scenarios 6-8, create subplot grid
+                        #     import matplotlib.pyplot as plt
+                        #     M = X_test.shape[1]
+                        #     n_cols = int(np.ceil(np.sqrt(M)))
+                        #     n_rows = int(np.ceil(M / n_cols))
                             
-                            for qidx, q in enumerate((quantiles*100).astype(int)):
-                                fig, axes = plt.subplots(n_rows, n_cols, figsize=(4*n_cols, 4*n_rows))
-                                axes = axes.flatten() if M > 1 else [axes]
+                        #     for qidx, q in enumerate((quantiles*100).astype(int)):
+                        #         fig, axes = plt.subplots(n_rows, n_cols, figsize=(4*n_cols, 4*n_rows))
+                        #         axes = axes.flatten() if M > 1 else [axes]
                                 
-                                pred_q = preds[:,qidx] if preds.shape[1] > qidx else preds[:,-1]
+                        #         pred_q = preds[:,qidx] if preds.shape[1] > qidx else preds[:,-1]
                                 
-                                for m_idx in range(M):
-                                    ax = axes[m_idx]
-                                    X_2d = X_test[:, m_idx, :2]
-                                    from scipy.interpolate import griddata
-                                    grid_x, grid_y = np.mgrid[0:1:100j, 0:1:100j]
-                                    grid_z = griddata(X_2d, pred_q, (grid_x, grid_y), method='nearest')
-                                    im = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap='viridis',
-                                                   vmin=y_quantiles.min(), vmax=y_quantiles.max())
-                                    ax.set_title(f'M={m_idx+1}')
-                                    ax.set_xlabel('X1')
-                                    ax.set_ylabel('X2')
-                                    if midx == len(models)-1:
-                                        plt.colorbar(im, ax=ax)
+                        #         for m_idx in range(M):
+                        #             ax = axes[m_idx]
+                        #             X_2d = X_test[:, m_idx, :2]
+                        #             from scipy.interpolate import griddata
+                        #             grid_x, grid_y = np.mgrid[0:1:100j, 0:1:100j]
+                        #             grid_z = griddata(X_2d, pred_q, (grid_x, grid_y), method='nearest')
+                        #             im = ax.contourf(grid_x, grid_y, grid_z, levels=20, cmap='viridis',
+                        #                            vmin=y_quantiles.min(), vmax=y_quantiles.max())
+                        #             ax.set_title(f'M={m_idx+1}')
+                        #             ax.set_xlabel('X1')
+                        #             ax.set_ylabel('X2')
+                        #             if midx == len(models)-1:
+                        #                 plt.colorbar(im, ax=ax)
                                 
-                                for m_idx in range(M, len(axes)):
-                                    axes[m_idx].axis('off')
+                        #         for m_idx in range(M, len(axes)):
+                        #             axes[m_idx].axis('off')
                                 
-                                plt.tight_layout()
-                                plt.savefig(f'plots/st_scenario{scenario_idx+1}-quantile{q}-n{N_train}-{model.filename}.pdf')
-                                plt.close()
+                        #         plt.tight_layout()
+                        #         plt.savefig(f'plots/st_scenario{scenario_idx+1}-quantile{q}-n{N_train}-{model.filename}.pdf')
+                        #         plt.close()
 
             print(f'  Results: {mse_results[trial, scenario_idx]}')
 
