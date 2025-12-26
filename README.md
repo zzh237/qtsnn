@@ -201,12 +201,17 @@ print(mean_mse)
 ```bash
 # Demo模式
 python benchmark_st.py
+
+nohup python benchmark_st_wrapped.py --scenarios 6 7 8 --demo &  
 # 日志保存到: logs/benchmark_st_demo_2024-01-15-10-30-45.log
 
 # 完整实验
 python benchmark_st.py --full
 # 日志保存到: logs/benchmark_st_full_2024-01-15-10-30-45.log
 ```
+
+
+
 
 ## 日志内容
 
@@ -255,3 +260,154 @@ Trial 1/1
       Quantile Network
 ...
 ```
+
+
+
+
+训练数据 (y_train)
+y_train = func.sample(X_train)
+# 例如: noiseless(X) + np.random.standard_t(3, size=X.shape[0])
+
+Copy
+每个样本的误差是随机的，有正有负
+
+例如：[10.5, 9.8, 11.2, 8.9, 10.3, ...] （假设 noiseless = 10）
+
+模型从这些带随机噪声的数据中学习
+
+测试/评估 (y_quantiles)
+y_quantiles = np.array([func.quantile(X_test, q) for q in quantiles]).T
+# 例如对于 q=0.05, 0.5, 0.95:
+# quantile(X, 0.05) = noiseless(X) + t_dist.ppf(0.05, 3)  # 固定负值
+# quantile(X, 0.50) = noiseless(X) + t_dist.ppf(0.50, 3)  # = 0
+# quantile(X, 0.95) = noiseless(X) + t_dist.ppf(0.95, 3)  # 固定正值
+
+Copy
+python
+对于每个 q，误差是确定的
+
+例如（假设 noiseless = 10）：
+
+q=0.05: 10 + (-2.35) = 7.65 （5% 分位数）
+
+q=0.50: 10 + 0 = 10.0 （中位数）
+
+q=0.95: 10 + 2.35 = 12.35 （95% 分位数）
+
+具体例子
+假设 t(df=3) 分布：
+
+# 训练时 (sample)：随机噪声
+np.random.standard_t(3, size=5)
+# 输出: [0.8, -1.2, 2.1, -0.5, 0.3]  # 每次都不同！
+
+# 测试时 (quantile)：固定分位数
+t_dist.ppf(0.05, 3)  # 总是 -2.353
+t_dist.ppf(0.50, 3)  # 总是 0.0
+t_dist.ppf(0.95, 3)  # 总是 2.353
+
+Copy
+python
+为什么这样设计？
+训练：模型需要从真实的随机数据中学习噪声的分布
+
+评估：我们想知道模型能否预测理论上的分位数（ground truth）
+
+这就像：
+
+训练：给学生看很多考试成绩（有高有低，随机的）
+
+测试：问学生"第5百分位是多少？中位数是多少？第95百分位是多少？"（固定答案）
+
+所以你的理解完全正确：
+
+sample 用随机误差生成训练数据
+
+quantile 用固定分位数作为评估标准
+
+那这个区别就是sqerrnetwork 和 quantilenetowrik 在模拟的时候的区别，这两个有啥区别呢？他们在哪里定义的？
+
+
+Context
+让我查看这两个模型的定义：
+
+2 files read
+neural_sqerr.py
+neural_model.py
+完美！现在我可以解释这两个模型的核心区别：
+
+SqErrNetwork (均方误差网络)
+定义位置: /Users/bleachvex/Downloads/projects/qtsnn/neural_sqerr.py
+
+目标: 预测条件期望 E[Y|X]（即条件均值）
+
+损失函数:
+
+def sqerr_loss(yhat, tidx):
+    return (tY[tidx,None] - yhat)**2  # 均方误差
+
+Copy
+python
+输出:
+
+单个值（期望值）
+
+对于多个分位数，会重复输出相同的期望值
+
+特点:
+
+优化目标：最小化 (y - ŷ)²
+
+预测的是平均值（中心趋势）
+
+不考虑分位数信息
+
+QuantileNetwork (分位数网络)
+定义位置: /Users/bleachvex/Downloads/projects/qtsnn/neural_model.py
+
+目标: 预测条件分位数 Q_τ[Y|X]（对于多个 τ 值）
+
+损失函数:
+
+def quantile_loss(yhat, tidx):
+    z = tY[tidx,None] - yhat
+    return torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
+
+Copy
+python
+这是分位数损失（也叫 pinball loss）：
+
+当 y > ŷ 时：损失 = τ × (y - ŷ)
+
+当 y < ŷ 时：损失 = (1-τ) × (ŷ - y)
+
+输出:
+
+多个值（每个分位数一个）
+
+例如：[q₀.₀₅, q₀.₂₅, q₀.₅, q₀.₇₅, q₀.₉₅]
+
+特点:
+
+优化目标：最小化分位数损失
+
+预测整个条件分布的不同分位数
+
+强制单调性：通过 softplus 确保 q₀.₀₅ ≤ q₀.₂₅ ≤ q₀.₅ ≤ ...
+
+关键区别总结
+特性	SqErrNetwork	QuantileNetwork
+预测目标	条件期望 E[Y|X]	条件分位数 Q_τ[Y|X]
+损失函数	MSE: (y-ŷ)²	Quantile loss: max(τ·z, (τ-1)·z)
+输出数量	1个值	多个值（每个τ一个）
+对异常值	敏感（平方惩罚）	鲁棒（线性惩罚）
+信息量	只有均值	整个分布的形状
+在 benchmark 中的作用
+models = [lambda: SqErrNetwork(),              # 基线：只预测均值
+          lambda: QuantileNetwork(quantiles)]  # 目标：预测所有分位数
+
+Copy
+python
+SqErrNetwork: 作为基线，看看只预测均值的表现
+
+QuantileNetwork: 真正的分位数回归模型，应该表现更好

@@ -18,12 +18,12 @@ class Benchmark:
     def sample(self, X):
         raise NotImplementedError
 
-# R Scenario 1: Piecewise constant with spatial dependency
-class RScenario1(Benchmark):
+# R Scenario 6: Piecewise constant with spatial dependency
+class RScenario6(Benchmark):
     def __init__(self):
         super().__init__()
         self.n_in = 2
-        self.label = 'R Scenario 1'
+        self.label = 'R Scenario 6'
     
     def noiseless(self, X):
         """Piecewise constant based on distance to centers"""
@@ -61,12 +61,12 @@ class RScenario1(Benchmark):
         indep_noise = norm.rvs(0, 0.5, size=n)
         return base + 0.5 * spatial_noise + 0.5 * indep_noise
 
-# R Scenario 2: Linear boundary with heavy-tailed noise
-class RScenario2(Benchmark):
+# R Scenario 7: Linear boundary with heavy-tailed noise
+class RScenario7(Benchmark):
     def __init__(self):
         super().__init__()
         self.n_in = 2
-        self.label = 'R Scenario 2'
+        self.label = 'R Scenario 7'
     
     def noiseless(self, X):
         """Linear boundary: (5/4)*x1 + (3/4)*x2 > 1"""
@@ -97,13 +97,13 @@ class RScenario2(Benchmark):
         heavy_noise = cauchy.rvs(0, 1, size=n)
         return base + 0.5 * spatial_noise + 0.5 * heavy_noise
 
-# R Scenario 3: Piecewise constant with quantile-specific shift
-class RScenario3(Benchmark):
+# R Scenario 8: Piecewise constant with quantile-specific shift
+class RScenario8(Benchmark):
     def __init__(self, tau=0.5):
         super().__init__()
         self.n_in = 2
         self.tau = tau
-        self.label = 'R Scenario 3'
+        self.label = 'R Scenario 8'
     
     def noiseless(self, X):
         """Same as RScenario1"""

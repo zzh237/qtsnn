@@ -93,19 +93,23 @@ class STScenario5(SpatialTemporalWrapper):
         self.label = 'ST Scenario 5'
 
 # Add R-based scenarios
-from funcs_r import RScenario1, RScenario2, RScenario3
+# NOTE: Commented out - using funcs_r2.py instead for full R implementation
+# from funcs_r import RScenario6, RScenario7, RScenario8
+# 
+# class STScenario6(SpatialTemporalWrapper):
+#     def __init__(self):
+#         super().__init__(RScenario6(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+#         self.label = 'ST Scenario 6 (R1)'
+# 
+# class STScenario7(SpatialTemporalWrapper):
+#     def __init__(self):
+#         super().__init__(RScenario7(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+#         self.label = 'ST Scenario 7 (R2)'
+# 
+# class STScenario8(SpatialTemporalWrapper):
+#     def __init__(self):
+#         super().__init__(RScenario8(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
+#         self.label = 'ST Scenario 8 (R3)'
 
-class STScenario6(SpatialTemporalWrapper):
-    def __init__(self):
-        super().__init__(RScenario1(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
-        self.label = 'ST Scenario 6 (R1)'
-
-class STScenario7(SpatialTemporalWrapper):
-    def __init__(self):
-        super().__init__(RScenario2(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
-        self.label = 'ST Scenario 7 (R2)'
-
-class STScenario8(SpatialTemporalWrapper):
-    def __init__(self):
-        super().__init__(RScenario3(), n_time=50, temporal_corr=0.3, spatial_corr=0.5)
-        self.label = 'ST Scenario 8 (R3)'
+# Import R scenarios from funcs_r2.py (full R implementation)
+from funcs_r2 import STScenario6, STScenario7, STScenario8
