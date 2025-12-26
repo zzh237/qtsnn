@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 from funcs_st import (STScenario1, STScenario2, STScenario3, STScenario4, STScenario5, 
-                      STScenario6, STScenario7, STScenario8,
-                      STScenario9, STScenario10, STScenario11, STScenario12, STScenario13, STScenario14)
+                      STScenario6, STScenario7, STScenario8, STScenario9,
+                      STScenario10, STScenario11, STScenario12, STScenario13, STScenario14, STScenario15)
 from neural_sqerr import SqErrNetwork
 from neural_model import QuantileNetwork
 from visualize import heatmap_from_points
@@ -21,8 +21,8 @@ def run_st_benchmarks(demo=True, scenarios=None):
     quantiles = np.array([0.05, 0.25, 0.5, 0.75, 0.95])
     
     all_functions = [STScenario1(), STScenario2(), STScenario3(), STScenario4(), STScenario5(),
-                     STScenario6(), STScenario7(), STScenario8(),
-                     STScenario9(), STScenario10(), STScenario11(), STScenario12(), STScenario13(), STScenario14()]
+                     STScenario6(), STScenario7(), STScenario8(), STScenario9(),
+                     STScenario10(), STScenario11(), STScenario12(), STScenario13(), STScenario14(), STScenario15()]
     
     # Filter scenarios if specified
     if scenarios:
@@ -49,11 +49,11 @@ def run_st_benchmarks(demo=True, scenarios=None):
             if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                 X_test = np.random.random(size=(N_test, func.n_in))
                 y_test = func.sample(X_test)
-            elif scenario_idx + 1 in [6, 7, 8]:
+            elif scenario_idx + 1 in [6, 7, 8, 9]:
                 M = func._generate_m(n=N_test).max()
                 X_test_input = np.random.uniform(0, 1, (N_test, M, func.d))
                 X_test, y_test = func.sample(X_test_input)
-            else:  # scenarios 9-14
+            else:  # scenarios 10-15
                 M = func._generate_m(n=N_test).max()
                 X_test_input = np.random.uniform(0, 1, (N_test, M, 1))
                 X_test, y_test = func.sample(X_test_input)
@@ -102,11 +102,11 @@ def run_st_benchmarks(demo=True, scenarios=None):
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                     X_train = np.random.random(size=(N_train, func.n_in))
                     y_train = func.sample(X_train)
-                elif scenario_idx + 1 in [6, 7, 8]:
+                elif scenario_idx + 1 in [6, 7, 8, 9]:
                     M = func._generate_m(n=N_train).max()
                     X_train_input = np.random.uniform(0, 1, (N_train, M, func.d))
                     X_train, y_train = func.sample(X_train_input)
-                else:  # scenarios 9-14
+                else:  # scenarios 10-15
                     M = func._generate_m(n=N_train).max()
                     X_train_input = np.random.uniform(0, 1, (N_train, M, 1))
                     X_train, y_train = func.sample(X_train_input)

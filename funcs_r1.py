@@ -25,10 +25,10 @@ class UnivariateSTScenario:
     def _h_function(self, x, t):
         return (1/np.sqrt(2)) * np.pi * np.sin(t * x)
 
-class STScenario9(UnivariateSTScenario):
+class STScenario10(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 9 (Doppler)'
+        self.label = 'ST Scenario 10 (Doppler)'
     
     def noiseless(self, X):
         return 2 * np.sin(2*np.pi / (X + 0.1)**0.5) * X**0.25
@@ -115,10 +115,10 @@ class STScenario9(UnivariateSTScenario):
         y_full = np.concatenate(y_list)
         return X_full, y_full
 
-class STScenario10(UnivariateSTScenario):
+class STScenario11(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 10 (Doppler, t-dist)'
+        self.label = 'ST Scenario 11 (Doppler, t-dist)'
     
     def noiseless(self, X):
         return 2 * np.sin(2*np.pi / (X + 0.1)**0.5) * X**0.25
@@ -205,10 +205,10 @@ class STScenario10(UnivariateSTScenario):
         y_full = np.concatenate(y_list)
         return X_full, y_full
 
-class STScenario11(UnivariateSTScenario):
+class STScenario12(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 11 (Piecewise Linear)'
+        self.label = 'ST Scenario 12 (Piecewise Linear)'
     
     def noiseless(self, X):
         return np.where(X <= 0.4, 2.5 * X,
@@ -297,10 +297,10 @@ class STScenario11(UnivariateSTScenario):
         y_full = np.concatenate(y_list)
         return X_full, y_full
 
-class STScenario12(UnivariateSTScenario):
+class STScenario13(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 12 (Heterogeneous Sine)'
+        self.label = 'ST Scenario 13 (Heterogeneous Sine)'
     
     def noiseless(self, X):
         beta = 1.5 * np.sin(4 * np.pi * X)
@@ -389,10 +389,10 @@ class STScenario12(UnivariateSTScenario):
         y_full = np.concatenate(y_list)
         return X_full, y_full
 
-class STScenario13(UnivariateSTScenario):
+class STScenario14(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 13 (Lagrange Polynomial)'
+        self.label = 'ST Scenario 14 (Lagrange Polynomial)'
     
     def noiseless(self, X):
         return -2125/6 * X**4 + 2050/3 * X**3 - 2465/6 * X**2 + 248/3 * X
@@ -479,10 +479,10 @@ class STScenario13(UnivariateSTScenario):
         y_full = np.concatenate(y_list)
         return X_full, y_full
 
-class STScenario14(UnivariateSTScenario):
+class STScenario15(UnivariateSTScenario):
     def __init__(self, m_mult=1, tau=0.5):
         super().__init__(m_mult, tau)
-        self.label = 'ST Scenario 14 (Piecewise Constant)'
+        self.label = 'ST Scenario 15 (Piecewise Constant)'
     
     def noiseless(self, X):
         breakpoints = np.linspace(0, 1, 7)**2

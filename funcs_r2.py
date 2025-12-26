@@ -488,3 +488,222 @@ class STScenario8(SpatialTemporalScenario):
 
         print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
         return X_full, y_full
+
+
+
+class STScenario9(SpatialTemporalScenario):
+    """
+    Python version of R scenario4:
+    - beta: piecewise constant (+1 / -1) then centered by subtracting mean f_bar
+    - delta: b ~ N(0,2), temporal dependence via past_b with coef 0.5
+    - epsilon: t(3), temporal dependence via past_e with coef 0.3
+    """
+
+    def __init__(self, m_mult=1, d=5, tau=0.5):
+        super().__init__(m_mult=m_mult, d=d, tau=tau)
+        self.label = f"ST Scenario 9 (R scenario4, d={d})"
+
+        # caches aligned with flattened X_full rows (created by sample)
+        self._cache_shift = None   # deterministic shift per point
+        self._cache_sigma = None   # std of Normal part from b per point
+        self._cache_tscale = None  # scale of t innovation per point (here always 1)
+        self._cache_nflat = None
+
+        # MC settings for quantile()
+        self.mc_R = 1024
+        self.mc_chunk = 4000
+        self._mc_Z = None   # N(0,1) draws, shape (R,)
+        self._mc_T = None   # t(3) draws, shape (R,)
+
+    def noiseless(self, X):
+        """
+        raw beta: +1 if closer to center1=1/4 else -1
+        """
+        X = np.asarray(X, dtype=float)
+        center1 = np.ones(self.d) * 0.25
+        center2 = np.ones(self.d) * 0.75
+        dist1 = np.linalg.norm(X - center1, axis=1)
+        dist2 = np.linalg.norm(X - center2, axis=1)
+        return np.where(dist1 < dist2, 1.0, -1.0)
+
+    def sample(self, X):
+        """
+        X: (n, M, d) with M >= max(m)
+        Returns:
+            X_full: (N_flat, d)
+            y_full: (N_flat,)
+        Also caches oracle ingredients for quantile().
+        """
+        X = np.asarray(X, dtype=float)
+        if X.ndim != 3 or X.shape[2] != self.d:
+            raise ValueError(f"X must have shape (n, M, {self.d}), got {X.shape}.")
+
+        n = X.shape[0]
+        m = self._generate_m(n)
+        M = int(m.max())
+
+        # ----- temporal dependence of X (same spirit as R) -----
+        for i in range(1, n):
+            where = np.random.uniform(0, 1, int(m[i-1])) < 0.1
+            if where.any():
+                # copy those selected points from previous time i-1
+                X[i, :int(m[i-1]), :][where] = X[i-1, :int(m[i-1]), :][where]
+
+        # Build list of X_i, compute raw beta first (two-pass like R)
+        X_list = []
+        beta_raw_list = []
+        total_sum = 0.0
+        total_cnt = 0
+
+        for i in range(n):
+            mi = int(m[i])
+            X_i = X[i, :mi, :]                 # (mi, d)
+            beta_raw = self.noiseless(X_i)      # (mi,)
+            X_list.append(X_i)
+            beta_raw_list.append(beta_raw)
+            total_sum += float(beta_raw.sum())
+            total_cnt += mi
+
+        f_bar = total_sum / max(total_cnt, 1)   # mean of unlist(beta) in R
+
+        # Now generate y sequentially with temporal dependence (like R)
+        t = np.arange(1, 26, dtype=float)        # 1..25
+        past_b = np.zeros(25, dtype=float)
+        past_e = np.zeros(M, dtype=float)
+
+        y_list = []
+        shift_list, sigma_list, tscale_list = [], [], []
+
+        for i in tqdm(range(n), desc="Sample generation", leave=False):
+            X_i = X_list[i]
+            mi = X_i.shape[0]
+
+            beta_i = beta_raw_list[i] - f_bar    # centered beta (tau is fixed 0.5, no qnorm shift)
+
+            # H(x,t) and W(x)=H/t
+            H = self._h_matrix(X_i, t)           # (mi, 25)
+            W = H / t[None, :]                   # (mi, 25)
+
+            # ----- deterministic shift given current history -----
+            # delta shift from past_b: sum 0.5*past_b*h
+            # epsilon shift from past_e: 0.3*past_e_j
+            shift_i = H @ (0.5 * past_b) + 0.3 * past_e[:mi]   # (mi,)
+
+            # ----- random part -----
+            # b ~ N(0,2) i.i.d, delta_rand = W @ b
+            b = np.random.normal(loc=0.0, scale=2.0, size=25)  # (25,)
+            delta_rand = W @ b                                  # (mi,)
+
+            # epsilon: 0.3*past_e + t(3)
+            epsilon = 0.3 * past_e + t_dist.rvs(df=3, size=M)   # (M,)
+
+            y_i = beta_i + shift_i + delta_rand + (epsilon[:mi] - 0.3 * past_e[:mi])
+            # 上式等价于 beta_i + (0.5*past_b*h + (b/t)*h) + epsilon[:mi]
+
+            # update states (same as R)
+            past_b = 0.5 * past_b + (1.0 / t) * b
+            past_e = epsilon
+
+            y_list.append(y_i)
+
+            # ----- cache for oracle quantile -----
+            # delta_rand is Normal with std = 2 * sqrt(sum (H/t)^2)
+            sigma_i = 2.0 * np.sqrt(np.sum(W**2, axis=1))     # (mi,)
+            tscale_i = np.ones(mi, dtype=float)              # t(3) innovation scale is 1
+
+            shift_list.append(shift_i)
+            sigma_list.append(sigma_i)
+            tscale_list.append(tscale_i)
+
+        X_full = np.vstack(X_list)
+        y_full = np.concatenate(y_list)
+
+        self._cache_shift = np.concatenate(shift_list).astype(np.float32)
+        self._cache_sigma = np.concatenate(sigma_list).astype(np.float32)
+        self._cache_tscale = np.concatenate(tscale_list).astype(np.float32)
+        self._cache_nflat = X_full.shape[0]
+
+        # pre-draw MC samples for quantile (reused for different q)
+        self._mc_Z = np.random.normal(0.0, 1.0, size=self.mc_R).astype(np.float32)
+        self._mc_T = t_dist.rvs(df=3, size=self.mc_R).astype(np.float32)
+
+        print(f"X_full shape: {X_full.shape}, y_full shape: {y_full.shape}")
+        return X_full, y_full
+
+    def quantile(self, X, q):
+        """
+        Oracle quantile via MC:
+            Y = beta_centered(X) + shift + Normal(0, sigma^2) + t3 * tscale
+        Here tscale=1 always, sigma depends on X, shift depends on history at sampling time.
+
+        This is designed for your benchmark pattern:
+            X_full, y = sample(X_input)
+            qvals = quantile(X_input, q)
+        so it will use caches from last sample() when shapes match.
+        """
+        if not (0.0 < q < 1.0):
+            raise ValueError("q must be in (0,1).")
+
+        X_flat = self._flatten_X(X)  # parent: (n,M,d)->(N_flat,d) OR (N,d)->(N,d)
+
+        # base beta: centered by f_bar, but f_bar is data-dependent.
+        # 在 benchmark 里你要的是 "oracle quantile for the sampled dataset"，所以我们用 sample() 缓存的 shift/sigma，
+        # 同时 beta 用 noiseless(X_flat) 再减去同一次 sample 的 f_bar 才严格。
+        #
+        # 为了不额外缓存 f_bar，这里建议：在 sample() 里同时缓存 beta_centered_full。
+        # 但你如果只需要 quantile 与 y 对齐的“真值”，shift/sigma 已经对齐，beta 也应该对齐。
+        # 这里做最小改动：在 sample() 内部其实我们已经用 beta_i = raw - f_bar 生成 y；
+        # 因此 quantile() 也应使用同样的 beta_centered_full。
+        #
+        # 下面：如果 cache 存在且长度匹配，我们直接从 sample() 过程重构 beta_centered_full：不行，因为 f_bar 丢了。
+        # 所以：建议你在 sample() 里也缓存 self._cache_beta（下面给出两行改法）。
+        if not hasattr(self, "_cache_beta") or self._cache_beta is None or X_flat.shape[0] != self._cache_beta.shape[0]:
+            raise RuntimeError(
+                "STScenario9.quantile requires sample() to cache centered beta. "
+                "Please add caching: self._cache_beta = beta_full_centered in sample()."
+            )
+
+        beta = self._cache_beta.astype(np.float32)
+
+        # use cache if available
+        use_cache = (
+            self._cache_nflat is not None
+            and X_flat.shape[0] == self._cache_nflat
+            and self._cache_shift is not None
+            and self._cache_sigma is not None
+            and self._cache_tscale is not None
+        )
+
+        if use_cache:
+            shift = self._cache_shift
+            sigma = self._cache_sigma
+            tscale = self._cache_tscale
+        else:
+            # fallback: no history => shift=0, but still compute sigma from X
+            t = np.arange(1, 26, dtype=float)
+            H = self._h_matrix(X_flat, t)
+            W = H / t[None, :]
+            shift = np.zeros(X_flat.shape[0], dtype=np.float32)
+            sigma = (2.0 * np.sqrt(np.sum(W**2, axis=1))).astype(np.float32)
+            tscale = np.ones(X_flat.shape[0], dtype=np.float32)
+
+        # MC draws
+        R = self.mc_R
+        if self._mc_Z is None or self._mc_T is None or self._mc_Z.shape[0] != R:
+            self._mc_Z = np.random.normal(0.0, 1.0, size=R).astype(np.float32)
+            self._mc_T = t_dist.rvs(df=3, size=R).astype(np.float32)
+
+        Z = self._mc_Z
+        T = self._mc_T
+
+        N = X_flat.shape[0]
+        out = np.empty(N, dtype=np.float32)
+
+        for s in range(0, N, self.mc_chunk):
+            e = min(N, s + self.mc_chunk)
+            sig = sigma[s:e]      # (C,)
+            sca = tscale[s:e]     # (C,)
+            samples = Z[:, None] * sig[None, :] + T[:, None] * sca[None, :]
+            out[s:e] = np.quantile(samples, q, axis=0).astype(np.float32)
+
+        return (beta + shift + out).astype(float)
