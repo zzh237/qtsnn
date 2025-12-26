@@ -46,7 +46,8 @@ def run_st_benchmarks(demo=True, scenarios=None):
             if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                 X_test = np.random.random(size=(N_test, func.n_in))
             else:
-                X_test = np.random.uniform(0, 1, (N_test, func.M, func.d))
+                M = func._generate_m(n=N_test).max()
+                X_test = np.random.uniform(0, 1, (N_test, M, func.d))
             y_test = func.sample(X_test)
             y_quantiles = np.array([func.quantile(X_test, q) for q in quantiles]).T
 
@@ -61,7 +62,8 @@ def run_st_benchmarks(demo=True, scenarios=None):
                 if scenario_idx + 1 in [1, 2, 3, 4, 5]:
                     X_train = np.random.random(size=(N_train, func.n_in))
                 else:
-                    X_train = np.random.uniform(0, 1, (N_train, func.M, func.d))
+                    M = func._generate_m(n=N_train).max()
+                    X_train = np.random.uniform(0, 1, (N_train, M, func.d))
                 y_train = func.sample(X_train)
 
                 for midx, model in enumerate([m() for m in models]):
